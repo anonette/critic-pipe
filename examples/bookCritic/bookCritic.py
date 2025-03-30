@@ -117,7 +117,7 @@ async def get_arxiv_content(url: str, aiohttp_session: aiohttp.ClientSession):
 
 
 async def main():
-    default_path = "../foundational/assets/book.txt"
+    default_path = "assets/book.txt"
     if os.path.exists(default_path):
         source = default_path
     else:

@@ -52,3 +52,4 @@ pipecat/examples/bot-ready-signalling/client/react-native/web-build/
 docs/api/_build/
 docs/api/api
 examples/bookCritic/bookCritic.log
+examples/bookCritic/conversation.log

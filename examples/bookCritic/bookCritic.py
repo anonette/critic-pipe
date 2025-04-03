@@ -216,14 +216,8 @@ async def main():
         @transport.event_handler("on_first_participant_joined")
         async def on_first_participant_joined(transport, participant):
             await transport.capture_participant_transcription(participant["id"])
-            messages.append(
-                {
-                    "role": "system",
-                    "content": "Hello! I'm ready to discuss the article with you. What would you like to learn about?",
-                }
-            )
-            logger.info("First participant joined", extra={"conversation": True})
-            await task.queue_frames([context_aggregator.user().get_context_frame()])
+            # We'll wait for the participant to talk before starting the conversation
+            logger.info("Waiting for participant to speak before starting the conversation...", extra={"conversation": True})
 
         @transport.event_handler("on_participant_left")
         async def on_participant_left(transport, participant, reason):
@@ -232,8 +226,17 @@ async def main():
 
         @transport.event_handler("on_transcription_message")
         async def on_transcription_message(transport, message):
-            if "text" in message:
-                logger.info(f"User: {message['text']}", extra={"conversation": True})
+            # Check if this is a final transcription message
+            if message.get("is_final", False):
+                text = message.get("text", "").strip()
+                if text:
+                    logger.info(f"User: {text}", extra={"conversation": True})
+                    # Add the user's message to the conversation
+                    messages.append({"role": "user", "content": text})
+                    # Add a system message to instruct the bot to respond
+                    messages.append({"role": "system", "content": "Please respond to what the user just said."})
+                    # Queue the context frame to trigger the bot's response
+                    await task.queue_frames([context_aggregator.user().get_context_frame()])
 
         @transport.event_handler("on_participant_joined")
         async def on_participant_joined(transport, participant):

@@ -182,8 +182,6 @@ async def main():
                 - Address power dynamics, institutional structures, and political implications
                 - Alternate between academic critique and rhetorical jabs
 
-                start your response only after someone says your name.
-
                 THESE RESPONSES SHOULD BE ONLY MAX 2 SENTENCES. THIS INSTRUCTION IS VERY IMPORTANT. RESPONSES SHOULDN'T BE LONG.
                 """,
             },

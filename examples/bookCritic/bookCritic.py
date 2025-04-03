@@ -19,10 +19,12 @@ from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.services.cartesia import CartesiaTTSService
 from pipecat.services.elevenlabs import ElevenLabsTTSService
 from pipecat.services.openai import OpenAILLMService
+from pipecat.services.openrouter import OpenRouterLLMService
 from pipecat.transports.services.daily import DailyParams, DailyTransport
 
 # Configure which TTS provider to use ("cartesia" or "elevenlabs")
 TTS_PROVIDER = "cartesia"  # Change this to switch between providers
+LOG_CONTENT = False  # Set to True to log the content being processed
 
 load_dotenv(override=True)
 
@@ -39,13 +41,22 @@ logger.add(
     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
 )
 
+# Add a separate logger for conversation
+logger.add(
+    "conversation.log",
+    rotation="1 day",
+    level="INFO",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+    filter=lambda record: "conversation" in record["extra"]
+)
 
 # Count number of tokens used in model and truncate the content
 def truncate_content(content, model_name):
     encoding = tiktoken.encoding_for_model(model_name)
     tokens = encoding.encode(content)
 
-    max_tokens = 10000
+    # max_tokens = 10000 #10000 tokens is the maximum that can be used in a request
+    max_tokens = 1000000
     if len(tokens) > max_tokens:
         truncated_tokens = tokens[:max_tokens]
         return encoding.decode(truncated_tokens)
@@ -56,7 +67,10 @@ def read_local_file(file_path: str) -> str:
     """Read content from a local text file."""
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
-            return file.read()
+            content = file.read()
+            if LOG_CONTENT:
+                logger.debug(f"Read content from file: {content}")
+            return content
     except Exception as e:
         logger.error(f"Error reading file: {e}")
         return "Failed to read the file."
@@ -65,53 +79,12 @@ def read_local_file(file_path: str) -> str:
 # Main function to extract content from url or local file
 async def get_content(source: str, aiohttp_session: aiohttp.ClientSession):
     if source.startswith(('http://', 'https://')):
-        return await get_article_content(source, aiohttp_session)
+        content = await get_article_content(source, aiohttp_session)
+        if LOG_CONTENT:
+            logger.debug(f"Retrieved content from URL: {content}")
+        return content
     else:
         return read_local_file(source)
-
-
-# Helper function to extract content from Wikipedia url (this is
-# technically agnostic to URL type but will work best with Wikipedia
-# articles)
-
-
-async def get_wikipedia_content(url: str, aiohttp_session: aiohttp.ClientSession):
-    async with aiohttp_session.get(url) as response:
-        if response.status != 200:
-            return "Failed to download Wikipedia article."
-
-        text = await response.text()
-        soup = BeautifulSoup(text, "html.parser")
-
-        content = soup.find("div", {"class": "mw-parser-output"})
-
-        if content:
-            return content.get_text()
-        else:
-            return "Failed to extract Wikipedia article content."
-
-
-# Helper function to extract content from arXiv url
-
-
-async def get_arxiv_content(url: str, aiohttp_session: aiohttp.ClientSession):
-    if "/abs/" in url:
-        url = url.replace("/abs/", "/pdf/")
-    if not url.endswith(".pdf"):
-        url += ".pdf"
-
-    async with aiohttp_session.get(url) as response:
-        if response.status != 200:
-            return "Failed to download arXiv PDF."
-
-        content = await response.read()
-        pdf_file = io.BytesIO(content)
-        pdf_reader = PdfReader(pdf_file)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-        return text
-
 
 # This is the main function that handles STT -> LLM -> TTS
 
@@ -128,6 +101,7 @@ async def main():
         content = truncate_content(content, model_name="gpt-4o-mini")
 
         (room_url, token) = await configure(session)
+        print(f"\nDaily room URL: {room_url}\n")  # Print URL to stdout
 
         transport = DailyTransport(
             room_url,
@@ -138,12 +112,6 @@ async def main():
                 transcription_enabled=True,
                 vad_enabled=True,
                 vad_analyzer=SileroVADAnalyzer(),
-                transcription_settings={
-                    "language": "en",
-                    "model": "sonic-2",
-                    "profanity_filter": False,
-                    "punctuate": True,
-                }
             ),
         )
 
@@ -172,8 +140,10 @@ async def main():
                 # )
             )
 
-        llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4o-mini")
-
+        llm = OpenRouterLLMService(
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            model="google/gemini-2.0-flash-lite-001"
+        )
         messages = [
             {
                 "role": "system",
@@ -212,6 +182,8 @@ async def main():
                 - Address power dynamics, institutional structures, and political implications
                 - Alternate between academic critique and rhetorical jabs
 
+                start your response only after someone says your name.
+
                 THESE RESPONSES SHOULD BE ONLY MAX 2 SENTENCES. THIS INSTRUCTION IS VERY IMPORTANT. RESPONSES SHOULDN'T BE LONG.
                 """,
             },
@@ -237,7 +209,7 @@ async def main():
                 audio_out_sample_rate=44100,
                 allow_interruptions=True,
                 enable_metrics=True,
-                # report_only_initial_ttfb=True,
+                report_only_initial_ttfb=True,
             ),
         )
 
@@ -250,11 +222,22 @@ async def main():
                     "content": "Hello! I'm ready to discuss the article with you. What would you like to learn about?",
                 }
             )
+            logger.info("First participant joined", extra={"conversation": True})
             await task.queue_frames([context_aggregator.user().get_context_frame()])
 
         @transport.event_handler("on_participant_left")
         async def on_participant_left(transport, participant, reason):
+            logger.info(f"Participant left: {reason}", extra={"conversation": True})
             await task.cancel()
+
+        @transport.event_handler("on_transcription_message")
+        async def on_transcription_message(transport, message):
+            if "text" in message:
+                logger.info(f"User: {message['text']}", extra={"conversation": True})
+
+        @transport.event_handler("on_participant_joined")
+        async def on_participant_joined(transport, participant):
+            logger.info(f"Participant joined: {participant['id']}", extra={"conversation": True})
 
         runner = PipelineRunner()
 

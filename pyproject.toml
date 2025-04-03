@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "bs4>=0.0.2",
-    "onnxruntime>=1.21.0",
-    "pipecat-ai[cartesia,cartesia,daily,elevenlabs,openai]>=0.0.61",
+    "onnxruntime",
+    "pipecat-ai[cartesia,daily,elevenlabs,openai,openrouter,silero,google]",
     "pypdf>=5.4.0",
     "python-dotenv>=1.1.0",
     "tiktoken>=0.9.0",

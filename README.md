@@ -1,6 +1,8 @@
 <h1><div align="center">
- <img alt="pipecat" width="300px" height="auto" src="https://raw.githubusercontent.com/pipecat-ai/pipecat/main/pipecat.png">
+  <img alt="pipecat" width="300px" height="auto" src="https://raw.githubusercontent.com/pipecat-ai/pipecat/main/pipecat.png">
 </div></h1>
+
+> 🎯 **New Example**: Check out our [Book Critic](examples/bookCritic) - an AI-powered application that lets you engage in critical discussions about books and articles with a virtual critic!
 
 [![PyPI](https://img.shields.io/pypi/v/pipecat-ai)](https://pypi.org/project/pipecat-ai) ![Tests](https://github.com/pipecat-ai/pipecat/actions/workflows/tests.yaml/badge.svg) [![codecov](https://codecov.io/gh/pipecat-ai/pipecat/graph/badge.svg?token=LNVUIVO4Y9)](https://codecov.io/gh/pipecat-ai/pipecat) [![Docs](https://img.shields.io/badge/Documentation-blue)](https://docs.pipecat.ai) [![Discord](https://img.shields.io/discord/1239284677165056021)](https://discord.gg/pipecat)
 
@@ -37,7 +39,7 @@ Pipecat is an open source Python framework for building voice and multimodal con
 
 ## Getting started
 
-You can get started with Pipecat running on your local machine, then move your agent processes to the cloud when you’re ready. You can also add a 📞 telephone number, 🖼️ image output, 📺 video input, use different LLMs, and more.
+You can get started with Pipecat running on your local machine, then move your agent processes to the cloud when you're ready. You can also add a 📞 telephone number, 🖼️ image output, 📺 video input, use different LLMs, and more.
 
 ```shell
 # Install the module
@@ -141,7 +143,7 @@ Daily provides a prebuilt WebRTC user interface. While the app is running, you c
 
 ## WebRTC for production use
 
-WebSockets are fine for server-to-server communication or for initial development. But for production use, you’ll need client-server audio to use a protocol designed for real-time media transport. (For an explanation of the difference between WebSockets and WebRTC, see [this post.](https://www.daily.co/blog/how-to-talk-to-an-llm-with-your-voice/#webrtc))
+WebSockets are fine for server-to-server communication or for initial development. But for production use, you'll need client-server audio to use a protocol designed for real-time media transport. (For an explanation of the difference between WebSockets and WebRTC, see [this post.](https://www.daily.co/blog/how-to-talk-to-an-llm-with-your-voice/#webrtc))
 
 One way to get up and running quickly with WebRTC is to sign up for a Daily developer account. Daily gives you SDKs and global infrastructure for audio (and video) routing. Every account gets 10,000 audio/video/transcription minutes free each month.
 

@@ -37,7 +37,8 @@ logger.add(
     "bookCritic.log",
     rotation="1 day",    # Create new file each day
     level="DEBUG",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+    filter=lambda record: "content" not in str(record["message"])  # Filter out messages containing content
 )
 
 # Add a separate logger for conversation
@@ -46,7 +47,7 @@ logger.add(
     rotation="1 day",
     level="INFO",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
-    filter=lambda record: "conversation" in record["extra"]
+    filter=lambda record: "conversation" in record["extra"] and "content" not in str(record["message"])
 )
 
 # Count number of tokens used in model and truncate the content

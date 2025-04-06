@@ -24,7 +24,6 @@ from pipecat.transports.services.daily import DailyParams, DailyTransport
 
 # Configure which TTS provider to use ("cartesia" or "elevenlabs")
 TTS_PROVIDER = "cartesia"  # Change this to switch between providers
-LOG_CONTENT = False  # Set to True to log the content being processed
 
 load_dotenv(override=True)
 
@@ -68,8 +67,6 @@ def read_local_file(file_path: str) -> str:
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
             content = file.read()
-            if LOG_CONTENT:
-                logger.debug(f"Read content from file: {content}")
             return content
     except Exception as e:
         logger.error(f"Error reading file: {e}")
@@ -80,8 +77,6 @@ def read_local_file(file_path: str) -> str:
 async def get_content(source: str, aiohttp_session: aiohttp.ClientSession):
     if source.startswith(('http://', 'https://')):
         content = await get_article_content(source, aiohttp_session)
-        if LOG_CONTENT:
-            logger.debug(f"Retrieved content from URL: {content}")
         return content
     else:
         return read_local_file(source)

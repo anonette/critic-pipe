@@ -38,7 +38,7 @@ logger.add(
     rotation="1 day",    # Create new file each day
     level="DEBUG",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
-    filter=lambda record: "content" not in str(record["message"])  # Filter out messages containing content
+    filter=lambda record: not ("content" in str(record["message"]) and "{" in str(record["message"]) and "}" in str(record["message"]))  # Only filter out content inside curly brackets
 )
 
 # Add a separate logger for conversation
@@ -47,7 +47,7 @@ logger.add(
     rotation="1 day",
     level="INFO",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
-    filter=lambda record: "conversation" in record["extra"] and "content" not in str(record["message"])
+    filter=lambda record: "conversation" in record["extra"]  # Only log conversation messages
 )
 
 # Count number of tokens used in model and truncate the content
@@ -207,24 +207,15 @@ async def main():
             ),
         )
 
-        @transport.event_handler("on_first_participant_joined")
-        async def on_first_participant_joined(transport, participant):
-            await transport.capture_participant_transcription(participant["id"])
-            # We'll wait for the participant to talk before starting the conversation
-            logger.info("Waiting for participant to speak before starting the conversation...", extra={"conversation": True})
-
-        @transport.event_handler("on_participant_left")
-        async def on_participant_left(transport, participant, reason):
-            logger.info(f"Participant left: {reason}", extra={"conversation": True})
-            await task.cancel()
-
         @transport.event_handler("on_transcription_message")
         async def on_transcription_message(transport, message):
             # Check if this is a final transcription message
             if message.get("is_final", False):
                 text = message.get("text", "").strip()
                 if text:
-                    logger.info(f"User: {text}", extra={"conversation": True})
+                    # Only log the transcription if it's not related to the book content
+                    if not any(keyword in text.lower() for keyword in ["content", "book", "text"]):
+                        logger.info(f"User: {text}", extra={"conversation": True})
                     # Add the user's message to the conversation
                     messages.append({"role": "user", "content": text})
                     # Add a system message to instruct the bot to respond
@@ -235,6 +226,17 @@ async def main():
         @transport.event_handler("on_participant_joined")
         async def on_participant_joined(transport, participant):
             logger.info(f"Participant joined: {participant['id']}", extra={"conversation": True})
+
+        @transport.event_handler("on_participant_left")
+        async def on_participant_left(transport, participant, reason):
+            logger.info(f"Participant left: {reason}", extra={"conversation": True})
+            await task.cancel()
+
+        @transport.event_handler("on_first_participant_joined")
+        async def on_first_participant_joined(transport, participant):
+            await transport.capture_participant_transcription(participant["id"])
+            # We'll wait for the participant to talk before starting the conversation
+            logger.info("Waiting for participant to speak before starting the conversation...", extra={"conversation": True})
 
         runner = PipelineRunner()
 
